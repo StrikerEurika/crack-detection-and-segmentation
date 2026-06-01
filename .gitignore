@@ -12,3 +12,7 @@ wheels/
 
 AGENTS/
 .antigravitycli/
+data/
+logs/
+models/
+
