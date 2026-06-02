@@ -14,5 +14,6 @@ AGENTS/
 .antigravitycli/
 data/
 logs/
-models/
 
+checkpoints/
+output/
