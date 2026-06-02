@@ -9,6 +9,7 @@ import torch
 
 from src.ingestion.image_loader import ImageLoader
 from src.preprocessing.normalize import ImagePreprocessor
+from src.preprocessing.marker_inpaint import MarkerInpaint
 from src.models.unet import CrackUnetModel
 from src.inference.predictor import CrackPredictor
 from src.inference.postprocess import PostProcessor
@@ -30,6 +31,16 @@ def parse_args():
     parser.add_argument("--min-area", type=int, default=20, help="Minimum pixel area for crack component noise removal")
     parser.add_argument("--blend", type=str, default="cosine", choices=["average", "cosine"], help="Tile blending mode")
     parser.add_argument("--encoder", type=str, default="resnet34", help="Backbone encoder network")
+
+    # Marker suppression options
+    parser.add_argument("--inpaint-markers", action="store_true", help="Inpaint colored markers before inference")
+    parser.add_argument("--marker-sat-threshold", type=int, default=85, help="HSV saturation threshold for marker detection")
+    parser.add_argument("--marker-val-threshold", type=int, default=55, help="HSV value threshold for marker detection")
+    parser.add_argument("--inpaint-radius", type=int, default=5, help="Inpainting radius for marker removal")
+    parser.add_argument("--suppress-marker-shapes", action="store_true", help="Remove compact/round marker-like shapes from predictions")
+    parser.add_argument("--frame-coverage", type=float, default=0.35, help="Border coverage threshold for frame-like marker rejection")
+    parser.add_argument("--roundness-threshold", type=float, default=0.58, help="Circularity threshold for round marker rejection")
+    parser.add_argument("--pre-inpaint-full", action="store_true", help="Inpaint markers on full image before tiling (vs per-tile)")
     return parser.parse_args()
 
 def main():
@@ -49,10 +60,18 @@ def main():
     metadata = ImageLoader.get_metadata(str(image_path))
     logger.info(f"Image loaded. Resolution: {metadata['width']}x{metadata['height']}, depth: {metadata['bit_depth']} bits.")
     
-    # Apply pre-tiling contrast enhancement if wanted
-    # logger.info("Applying CLAHE contrast enhancement...")
-    # image_enhanced = ImagePreprocessor.apply_clahe(image)
-    image_enhanced = image  # For now, keep original to match training distribution
+    # Apply pre-tiling marker inpainting if requested
+    image_preprocessed = image
+    if args.pre_inpaint_full:
+        logger.info("Inpainting markers on full image before tiling...")
+        image_preprocessed = MarkerInpaint.inpaint_tiled(
+            image,
+            tile_size=args.tile_size,
+            overlap=args.overlap,
+            saturation_threshold=args.marker_sat_threshold,
+            value_threshold=args.marker_val_threshold,
+            inpaint_radius=args.inpaint_radius,
+        )
     
     # 2. Load Model
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,21 +83,38 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         return
-        
+
     # 3. Initialize Predictor and Run Inference
-    predictor = CrackPredictor(model, device=device)
+    predictor = CrackPredictor(
+        model,
+        device=device,
+        inpaint_markers=args.inpaint_markers,
+        marker_saturation_threshold=args.marker_sat_threshold,
+        marker_value_threshold=args.marker_val_threshold,
+        inpaint_radius=args.inpaint_radius,
+    )
     logger.info("Running tiled inference on full image...")
     prob_map = predictor.predict_full_image(
-        image_enhanced,
+        image_preprocessed,
         tile_size=args.tile_size,
         overlap=args.overlap,
-        blend_mode=args.blend
+        blend_mode=args.blend,
     )
-    
+
     # 4. Post-processing
     logger.info("Binarizing and cleaning prediction map...")
     binary_mask = PostProcessor.binarize_probability_map(prob_map, threshold=args.threshold)
     cleaned_mask = PostProcessor.remove_noise(binary_mask, min_area=args.min_area)
+
+    # Apply shape-based marker suppression if requested
+    if args.suppress_marker_shapes:
+        logger.info("Suppressing marker-like shapes from prediction...")
+        cleaned_mask = PostProcessor.suppress_marker_shapes(
+            cleaned_mask,
+            frame_side_coverage_threshold=args.frame_coverage,
+            roundness_threshold=args.roundness_threshold,
+        )
+        cleaned_mask = PostProcessor.remove_noise(cleaned_mask, min_area=args.min_area)
     
     logger.info("Skeletonizing centerline...")
     skeleton = PostProcessor.skeletonize(cleaned_mask)

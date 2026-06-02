@@ -838,6 +838,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "albumentations" },
     { name = "matplotlib" },
+    { name = "opencv-python" },
     { name = "opencv-python-headless" },
     { name = "pandas" },
     { name = "pytest" },
@@ -852,6 +853,7 @@ dependencies = [
 requires-dist = [
     { name = "albumentations", specifier = ">=2.0.8" },
     { name = "matplotlib", specifier = ">=3.10.9" },
+    { name = "opencv-python", specifier = ">=4.13.0.92" },
     { name = "opencv-python-headless", specifier = ">=4.13.0.92" },
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "pytest", specifier = ">=9.0.3" },

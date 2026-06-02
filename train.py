@@ -20,6 +20,8 @@ def parse_args():
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay")
     parser.add_argument("--encoder", type=str, default="resnet34", help="Backbone encoder network")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Directory to save checkpoints")
+    parser.add_argument("--marker-aug", action="store_true", help="Enable synthetic marker augmentation during training")
+    parser.add_argument("--marker-aug-prob", type=float, default=0.3, help="Probability of marker augmentation per sample")
     return parser.parse_args()
 
 def train_epoch(model, loader, optimizer, criterion, device):
@@ -109,13 +111,15 @@ def main():
     train_dataset = CrackTileDataset(
         train_images,
         train_masks,
-        transform=get_default_transforms(img_size=512, is_training=True)
+        transform=get_default_transforms(img_size=512, is_training=True),
+        marker_augmentation=args.marker_aug,
+        marker_aug_prob=args.marker_aug_prob,
     )
-    
+
     val_dataset = CrackTileDataset(
         val_images,
         val_masks,
-        transform=get_default_transforms(img_size=512, is_training=False)
+        transform=get_default_transforms(img_size=512, is_training=False),
     )
     
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)

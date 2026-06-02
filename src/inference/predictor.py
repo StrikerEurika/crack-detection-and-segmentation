@@ -3,6 +3,7 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 from src.tiling.tile_generator import TileGenerator
 from src.tiling.tile_merger import TileMerger
+from src.inference.marker_suppression import MarkerSuppressor
 
 class CrackPredictor:
     def __init__(
@@ -10,31 +11,35 @@ class CrackPredictor:
         model: torch.nn.Module,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         mean: tuple = (0.485, 0.456, 0.406),
-        std: tuple = (0.229, 0.224, 0.225)
+        std: tuple = (0.229, 0.224, 0.225),
+        inpaint_markers: bool = False,
+        marker_saturation_threshold: int = 85,
+        marker_value_threshold: int = 55,
+        inpaint_radius: int = 5,
     ):
-        """Initializes the CrackPredictor.
-        
-        Args:
-            model: The trained PyTorch crack segmentation model.
-            device: Device to run inference on ('cuda' or 'cpu').
-            mean: Mean for ImageNet normalization.
-            std: Std dev for ImageNet normalization.
-        """
         self.model = model.to(device)
         self.model.eval()
         self.device = device
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
+        self.inpaint_markers = inpaint_markers
+        self.marker_saturation_threshold = marker_saturation_threshold
+        self.marker_value_threshold = marker_value_threshold
+        self.inpaint_radius = inpaint_radius
 
     def preprocess_tile(self, tile: np.ndarray) -> torch.Tensor:
-        """Preprocesses a single tile image (H, W, 3) for the model."""
-        # Convert to float32 [0.0, 1.0]
-        tile_float = tile.astype(np.float32) / 255.0
-        
-        # Apply ImageNet normalization
+        tile_prep = tile
+        if self.inpaint_markers:
+            tile_prep = MarkerSuppressor.preprocess_tile(
+                tile,
+                inpaint=True,
+                saturation_threshold=self.marker_saturation_threshold,
+                value_threshold=self.marker_value_threshold,
+                inpaint_radius=self.inpaint_radius,
+            )
+
+        tile_float = tile_prep.astype(np.float32) / 255.0
         tile_normalized = (tile_float - self.mean) / self.std
-        
-        # HWC -> CHW
         tile_tensor = torch.from_numpy(tile_normalized.transpose(2, 0, 1)).unsqueeze(0).float()
         return tile_tensor.to(self.device)
 
