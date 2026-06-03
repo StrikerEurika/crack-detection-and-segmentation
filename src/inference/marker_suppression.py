@@ -12,10 +12,28 @@ class MarkerSuppressor:
         value_threshold: int = 55,
     ) -> np.ndarray:
         hsv = cv2.cvtColor(tile_rgb, cv2.COLOR_RGB2HSV)
+        h = hsv[:, :, 0]
         sat = hsv[:, :, 1]
         val = hsv[:, :, 2]
 
-        marker_like = ((sat >= saturation_threshold) & (val >= value_threshold)).astype(np.uint8) * 255
+        # 1. Blue/Purple markers: Hue [90, 150], Sat >= sat_t_blue, Val >= val_t_blue
+        sat_t_blue = max(40, saturation_threshold - 35)
+        val_t_blue = max(40, value_threshold - 15)
+        blue_mask = (h >= 90) & (h <= 150) & (sat >= sat_t_blue) & (val >= val_t_blue)
+
+        # 2. Red/Pink/Orange markers: Hue [0, 10] or [170, 180], Sat >= sat_t_red, Val >= val_t_blue
+        sat_t_red = max(80, saturation_threshold + 5)
+        red_mask = ((h <= 10) | (h >= 170)) & (sat >= sat_t_red) & (val >= val_t_blue)
+
+        # 3. Green/Teal markers: Hue [35, 85], Sat >= sat_t_green, Val >= val_t_blue
+        sat_t_green = max(50, saturation_threshold - 25)
+        green_mask = (h >= 35) & (h <= 85) & (sat >= sat_t_green) & (val >= val_t_blue)
+
+        # 4. Yellow/Orange markers: Hue [10, 35], but extremely high saturation to avoid warm concrete
+        sat_t_yellow = max(155, saturation_threshold + 70)
+        yellow_mask = (h >= 10) & (h <= 35) & (sat >= sat_t_yellow) & (val >= val_t_blue)
+
+        marker_like = (blue_mask | red_mask | green_mask | yellow_mask).astype(np.uint8) * 255
 
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         marker_like = cv2.morphologyEx(marker_like, cv2.MORPH_OPEN, kernel)
