@@ -200,7 +200,7 @@ Train the ResNet34-UNet baseline model for 15 epochs using the ComboLoss:
 uv run train.py --epochs 15 --batch-size 4 --lr 3e-4
 ```
 
-The best checkpoint based on validation F1 score is saved to `checkpoints/best_model.pth`.
+The best checkpoint based on validation F1 score is saved to `checkpoints/v1/best_model.pth`.
 
 ### 4. Run Inference & Evaluation
 

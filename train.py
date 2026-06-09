@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from src.datasets.loader import CrackTileDataset, get_default_transforms
-from src.models.unet import CrackUnetModel
+from src.models import CrackUnetModel
 from src.training.losses import ComboLoss
 from src.evaluation.metrics import CrackMetrics
 from src.utils.logger import setup_logger
@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay")
     parser.add_argument("--encoder", type=str, default="resnet34", help="Backbone encoder network")
-    parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Directory to save checkpoints")
+    parser.add_argument("--checkpoint-dir", type=str, default="checkpoints/v1", help="Directory to save checkpoints")
     parser.add_argument("--marker-aug", action="store_true", help="Enable synthetic marker augmentation during training")
     parser.add_argument("--marker-aug-prob", type=float, default=0.3, help="Probability of marker augmentation per sample")
     return parser.parse_args()

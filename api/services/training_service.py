@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from api.config import settings
 from api.services.task_manager import task_manager
 from src.datasets.loader import CrackTileDataset, get_default_transforms
-from src.models.unet import CrackUnetModel
+from src.models import CrackUnetModel
 from src.training.losses import ComboLoss
 from src.evaluation.metrics import CrackMetrics
 from src.utils.logger import setup_logger

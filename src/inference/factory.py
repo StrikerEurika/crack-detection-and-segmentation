@@ -34,7 +34,7 @@ def get_predictor(
             )
             
     if model_type == "unet":
-        from src.models.unet import CrackUnetModel
+        from src.models import CrackUnetModel
         model = CrackUnetModel(encoder_name=encoder, encoder_weights=None, in_channels=3)
         model.load(model_path_str, device=device)
         return UnetPredictor(model=model, device=device, **kwargs)

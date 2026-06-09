@@ -21,7 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Unified Inference and Evaluation Pipeline (supports U-Net, YOLO, and future models)")
     parser.add_argument("--image", type=str, required=True, help="Path to input image file")
     parser.add_argument("--mask", type=str, default=None, help="Path to optional ground truth mask file")
-    parser.add_argument("--model-path", type=str, default="checkpoints/best_model.pth", help="Path to model checkpoint")
+    parser.add_argument("--model-path", type=str, default="checkpoints/v1/best_model.pth", help="Path to model checkpoint")
     parser.add_argument("--model-type", type=str, default="auto", choices=["auto", "unet", "yolo"], help="Model architecture type")
     parser.add_argument("--output-dir", type=str, default="output", help="Directory to save output files")
     
