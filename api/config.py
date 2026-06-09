@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     reload: bool = False
 
     project_root: Path = Path(__file__).resolve().parent.parent
-    default_model_path: str = str(project_root / "checkpoints" / "best_model.pth")
+    default_model_path: str = str(project_root / "checkpoints" / "v1" / "best_model.pth")
     default_model_type: str = "auto"
 
     output_dir: Path = project_root / "output"

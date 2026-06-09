@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 class PredictParams(BaseModel):
     model_type: str = Field("auto", description='Model type: "auto", "unet", or "yolo"')
+    model_version: Optional[str] = Field(None, description="Model version, relative path, or filename under checkpoints")
     tile_size: Optional[int] = Field(None, description="Tile size in pixels")
     overlap: Optional[int] = Field(None, description="Tile overlap in pixels")
     threshold: float = Field(0.5, description="Binarization probability threshold")
@@ -50,6 +51,7 @@ class TrainParams(BaseModel):
 class ModelInfo(BaseModel):
     model_id: str
     model_path: str
+    model_version: Optional[str] = None
     model_type: str
     device: str
     loaded_at: Optional[datetime] = None

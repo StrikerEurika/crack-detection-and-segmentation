@@ -24,6 +24,7 @@ logger = setup_logger("api.inference")
 async def predict_single(
     file: UploadFile = File(...),
     model_type: str = Form("auto"),
+    model_version: Optional[str] = Form(None),
     tile_size: Optional[int] = Form(None),
     overlap: Optional[int] = Form(None),
     threshold: float = Form(0.5),
@@ -59,6 +60,7 @@ async def predict_single(
 
     params = PredictParams(
         model_type=model_type,
+        model_version=model_version,
         tile_size=tile_size,
         overlap=overlap,
         threshold=threshold,
@@ -97,6 +99,7 @@ async def predict_and_evaluate(
     file: UploadFile = File(...),
     mask_file: UploadFile = File(...),
     model_type: str = Form("auto"),
+    model_version: Optional[str] = Form(None),
     tile_size: Optional[int] = Form(None),
     overlap: Optional[int] = Form(None),
     threshold: float = Form(0.5),
@@ -143,6 +146,7 @@ async def predict_and_evaluate(
 
     params = PredictParams(
         model_type=model_type,
+        model_version=model_version,
         tile_size=tile_size,
         overlap=overlap,
         threshold=threshold,
@@ -176,6 +180,7 @@ async def predict_and_evaluate(
 async def predict_batch(
     files: list[UploadFile] = File(...),
     model_type: str = Form("auto"),
+    model_version: Optional[str] = Form(None),
     tile_size: Optional[int] = Form(None),
     overlap: Optional[int] = Form(None),
     threshold: float = Form(0.5),
@@ -207,6 +212,7 @@ async def predict_batch(
 
     params = PredictParams(
         model_type=model_type,
+        model_version=model_version,
         tile_size=tile_size,
         overlap=overlap,
         threshold=threshold,

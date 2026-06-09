@@ -35,16 +35,17 @@ def run_single_inference(
         "height": image_array.shape[0],
     }
 
-    # Resolve model type and dynamic defaults
-    model_type = params.model_type
-    model_path = settings.default_model_path
-    if model_type == "auto" or model_manager.is_loaded:
-        if model_manager.is_loaded:
-            model_type = model_manager.model_info["model_type"]
-            model_path = model_manager.model_info["model_path"]
+    # Resolve model path and type dynamically
+    requested_model = params.model_version if params.model_version else settings.default_model_path
+    resolved_requested_path = model_manager.resolve_model_path(requested_model)
+    
+    # Check if the requested model is already loaded
+    if model_manager.is_loaded and Path(model_manager.model_info["model_path"]).resolve() == resolved_requested_path.resolve():
+        model_type = model_manager.model_info["model_type"]
+        model_path = model_manager.model_info["model_path"]
     else:
         model_manager.load(
-            model_path=settings.default_model_path,
+            model_path=str(resolved_requested_path),
             model_type=params.model_type,
         )
         model_info = model_manager.model_info

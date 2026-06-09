@@ -68,3 +68,28 @@ def test_predict_batch_with_images(client, sample_image_bytes):
     assert "task_id" in data
     assert data["total_images"] == 2
     assert data["status"] == "pending"
+
+
+def test_predict_with_model_version(client, sample_image_bytes):
+    if not sample_image_bytes:
+        pytest.skip("No sample image found")
+
+    # Predict using a version name "v1"
+    r = client.post(
+        "/api/v1/predict",
+        files={"file": ("test.jpg", sample_image_bytes, "image/jpeg")},
+        data={"threshold": 0.5, "min_area": 20, "model_version": "v1"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "result_id" in data
+    
+    # Predict using a relative path "v1/best_model.pth"
+    r = client.post(
+        "/api/v1/predict",
+        files={"file": ("test.jpg", sample_image_bytes, "image/jpeg")},
+        data={"threshold": 0.5, "min_area": 20, "model_version": "v1/best_model.pth"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "result_id" in data
