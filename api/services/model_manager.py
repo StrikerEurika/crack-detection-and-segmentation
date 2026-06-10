@@ -107,7 +107,9 @@ class ModelManager:
         if resolved_type == "auto":
             ext = resolved_path.suffix.lower()
             p_str = str(resolved_path).lower()
-            if ext == ".pth" or "unet" in p_str:
+            if "unet-plusplus" in p_str or "unetplusplus" in p_str:
+                resolved_type = "unet_plusplus_v1"
+            elif ext == ".pth" or "unet" in p_str:
                 resolved_type = "unet"
             elif ext == ".pt" or "yolo" in p_str:
                 resolved_type = "yolo"
@@ -116,6 +118,7 @@ class ModelManager:
                     f"Cannot auto-detect model type for {resolved_path}. "
                     "Specify --model-type explicitly."
                 )
+
 
         logger.info(
             f"Loading {resolved_type} model from {resolved_path} on {self._device}..."

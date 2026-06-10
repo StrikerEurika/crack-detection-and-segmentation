@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument("--image", type=str, required=True, help="Path to input image file")
     parser.add_argument("--mask", type=str, default=None, help="Path to optional ground truth mask file")
     parser.add_argument("--model-path", type=str, default="checkpoints/v1/best_model.pth", help="Path to model checkpoint")
-    parser.add_argument("--model-type", type=str, default="auto", choices=["auto", "unet", "yolo"], help="Model architecture type")
+    parser.add_argument("--model-type", type=str, default="auto", choices=["auto", "unet", "unet_plusplus_v1", "yolo"], help="Model architecture type")
     parser.add_argument("--output-dir", type=str, default="output", help="Directory to save output files")
     
     # Tiling options (None defaults will be resolved dynamically based on model type)
@@ -67,7 +67,9 @@ def main():
     model_type = args.model_type
     if model_type == "auto":
         ext = model_path.suffix.lower()
-        if ext == ".pth" or "unet" in str(model_path).lower():
+        if "unet-plusplus" in str(model_path).lower() or "unetplusplus" in str(model_path).lower():
+            model_type = "unet_plusplus_v1"
+        elif ext == ".pth" or "unet" in str(model_path).lower():
             model_type = "unet"
         elif ext == ".pt" or "yolo" in str(model_path).lower():
             model_type = "yolo"
@@ -78,11 +80,21 @@ def main():
     # Determine default tile size and overlap if not specified
     tile_size = args.tile_size
     if tile_size is None:
-        tile_size = 640 if model_type == "yolo" else 512
+        if model_type == "unet_plusplus_v1":
+            tile_size = 1024
+        elif model_type == "yolo":
+            tile_size = 640
+        else:
+            tile_size = 512
         
     overlap = args.overlap
     if overlap is None:
-        overlap = 96 if model_type == "yolo" else 64
+        if model_type == "unet_plusplus_v1":
+            overlap = 204
+        elif model_type == "yolo":
+            overlap = 96
+        else:
+            overlap = 64
         
     # 2. Load Image and Metadata
     image_path = Path(args.image)
@@ -218,6 +230,10 @@ def main():
         if mask_path.exists():
             logger.info("Loading ground truth mask for evaluation...")
             gt_mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+            
+            if model_type == "unet_plusplus_v1":
+                logger.info("Applying blue marker filtering to ground truth mask for consistency...")
+                gt_mask = MarkerSuppressor.filter_blue_markers_from_mask(image, gt_mask)
             
             # Compute skeleton of ground truth for centerline distance
             gt_skeleton = PostProcessor.skeletonize(gt_mask)

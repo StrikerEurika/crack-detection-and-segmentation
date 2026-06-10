@@ -54,11 +54,21 @@ def run_single_inference(
 
     tile_size = params.tile_size
     if tile_size is None:
-        tile_size = settings.default_tile_size_yolo if model_type == "yolo" else settings.default_tile_size_unet
+        if model_type == "unet_plusplus_v1":
+            tile_size = 1024
+        elif model_type == "yolo":
+            tile_size = settings.default_tile_size_yolo
+        else:
+            tile_size = settings.default_tile_size_unet
 
     overlap = params.overlap
     if overlap is None:
-        overlap = settings.default_overlap_yolo if model_type == "yolo" else settings.default_overlap_unet
+        if model_type == "unet_plusplus_v1":
+            overlap = 204
+        elif model_type == "yolo":
+            overlap = settings.default_overlap_yolo
+        else:
+            overlap = settings.default_overlap_unet
 
     # Optional pre-inpainting
     image_processed = image_array
@@ -127,6 +137,11 @@ def run_single_inference(
     # Evaluation if mask provided
     eval_results = {}
     if mask_array is not None:
+        if model_type == "unet_plusplus_v1":
+            from src.inference import MarkerSuppressor
+            logger.info("Applying blue marker filtering to ground truth mask for consistency...")
+            mask_array = MarkerSuppressor.filter_blue_markers_from_mask(image_array, mask_array)
+            
         gt_skeleton = PostProcessor.skeletonize(mask_array)
         pixel_metrics = CrackMetrics.compute_pixel_metrics(cleaned_mask, mask_array)
         buffered_metrics = CrackMetrics.compute_buffered_metrics(skeleton, gt_skeleton, tolerance=3.0)

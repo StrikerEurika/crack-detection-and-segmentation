@@ -191,3 +191,37 @@ class MarkerSuppressor:
                 result[ymin:ymax, xmin:xmax] = inpainted
 
         return result
+
+    @staticmethod
+    def filter_blue_markers_from_mask(image_rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """Filters out regions from the mask that correspond to blue markers in the image.
+        
+        Args:
+            image_rgb (np.array): The original RGB image.
+            mask (np.array): The grayscale crack mask (binary, 0 or 1, or 0 to 255).
+            
+        Returns:
+            np.array: The filtered grayscale crack mask with the same type and range.
+        """
+        # Convert RGB image to HSV for easier color thresholding
+        hsv_image = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2HSV)
+        
+        # Define range for blue color in HSV (these values might need adjustment)
+        # H: 90-130 (OpenCV range 0-179 for Hue)
+        # S: 50-255 (Saturation)
+        # V: 50-255 (Value/Brightness)
+        lower_blue = np.array([90, 50, 50])
+        upper_blue = np.array([130, 255, 255])
+        
+        # Threshold the HSV image to get only blue colors
+        blue_mask_image = cv2.inRange(hsv_image, lower_blue, upper_blue)
+        
+        # Convert to a binary mask (0 or 1) for logical operations
+        # Keep same type as input mask
+        blue_mask_binary = (blue_mask_image > 0).astype(mask.dtype)
+        
+        # Remove any regions from the original 'mask' that overlap with 'blue_mask_binary'
+        filtered_mask = mask * (1 - blue_mask_binary)
+        
+        return filtered_mask
+

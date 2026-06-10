@@ -23,7 +23,9 @@ def get_predictor(
     
     if model_type == "auto":
         ext = Path(model_path_str).suffix.lower()
-        if ext == ".pth" or "unet" in model_path_str.lower():
+        if "unet-plusplus" in model_path_str.lower() or "unetplusplus" in model_path_str.lower():
+            model_type = "unet_plusplus_v1"
+        elif ext == ".pth" or "unet" in model_path_str.lower():
             model_type = "unet"
         elif ext == ".pt" or "yolo" in model_path_str.lower():
             model_type = "yolo"
@@ -39,6 +41,14 @@ def get_predictor(
         model.load(model_path_str, device=device)
         return UnetPredictor(model=model, device=device, **kwargs)
         
+    elif model_type == "unet_plusplus_v1":
+        from src.models import CrackUnetPlusPlusModel
+        from src.inference import UnetPlusPlusV1Predictor
+        # UNet++ v1 model configuration: efficientnet-b0 backbone, 3 channels
+        model = CrackUnetPlusPlusModel(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=3)
+        model.load(model_path_str, device=device)
+        return UnetPlusPlusV1Predictor(model=model, device=device)
+        
     elif model_type == "yolo":
         # Lazy import of YOLO so that ultralytics is not required if only running U-Net
         from ultralytics import YOLO
@@ -48,3 +58,4 @@ def get_predictor(
         
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
+

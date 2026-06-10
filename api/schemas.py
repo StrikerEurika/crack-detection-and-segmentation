@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 # --- Request Schemas ---
 
 class PredictParams(BaseModel):
-    model_type: str = Field("auto", description='Model type: "auto", "unet", or "yolo"')
+    model_type: str = Field("auto", description='Model type: "auto", "unet", "unet_plusplus_v1", or "yolo"')
     model_version: Optional[str] = Field(None, description="Model version, relative path, or filename under checkpoints")
     tile_size: Optional[int] = Field(None, description="Tile size in pixels")
     overlap: Optional[int] = Field(None, description="Tile overlap in pixels")
@@ -30,20 +30,11 @@ class PredictParams(BaseModel):
 
 class LoadModelRequest(BaseModel):
     model_path: str
-    model_type: str = Field("auto", description='Model type: "auto", "unet", or "yolo"')
+    model_type: str = Field("auto", description='Model type: "auto", "unet", "unet_plusplus_v1", or "yolo"')
     encoder: str = Field("resnet34", description="UNet encoder backbone")
 
 
-class TrainParams(BaseModel):
-    data_dir: str = "data/tiles"
-    epochs: int = 15
-    batch_size: int = 4
-    lr: float = 3e-4
-    weight_decay: float = 1e-4
-    encoder: str = "resnet34"
-    checkpoint_dir: str = "checkpoints"
-    marker_aug: bool = False
-    marker_aug_prob: float = 0.3
+
 
 
 # --- Response Schemas ---
@@ -128,17 +119,4 @@ class BatchPredictResponse(BaseModel):
     total_images: int
 
 
-class TrainingStatusResponse(BaseModel):
-    task_id: str
-    status: str
-    epoch: Optional[int] = None
-    total_epochs: Optional[int] = None
-    train_loss: Optional[float] = None
-    val_loss: Optional[float] = None
-    val_f1: Optional[float] = None
-    val_iou: Optional[float] = None
-    progress: Optional[float] = None
-    message: Optional[str] = None
-    best_checkpoint: Optional[str] = None
-    created_at: str
-    completed_at: Optional[str] = None
+
