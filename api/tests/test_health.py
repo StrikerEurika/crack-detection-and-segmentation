@@ -1,10 +1,7 @@
 def test_root(client):
     r = client.get("/")
     assert r.status_code == 200
-    data = r.json()
-    assert "name" in data
-    assert "version" in data
-    assert data["name"] == "Crack Detection API"
+    assert r.headers["content-type"].startswith("text/html")
 
 
 def test_health(client):

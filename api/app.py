@@ -26,11 +26,30 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Crack Detection API",
-    description="REST API for microscopic crack detection: inference, evaluation, and result management.",
+    description="""
+AI-powered microscopic crack detection and analysis API.
+
+## Capabilities
+- **Single Image Inference** — Upload a microscopic image and detect cracks using deep learning models (UNet, UNet++, YOLO).
+- **Inference + Evaluation** — Upload both image and ground-truth mask to get precision/recall/F1 metrics alongside predictions.
+- **Batch Processing** — Submit multiple images for async batch inference with progress tracking.
+- **Model Management** — Load, switch, and unload different model checkpoints at runtime.
+- **Visualization** — Retrieve overlay, heatmap, and mask visualizations for each prediction.
+
+## Key Features
+- **Tiled Inference** — Handles large images by processing in overlapping tiles with cosine blending.
+- **Marker Suppression** — Automatically removes colored annotation markers that could interfere with detection.
+- **Skeletonization** — Extracts crack centerlines and estimates length/width dimensions.
+- **Async Processing** — Batch jobs run in background worker threads with status polling.
+""",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
+    contact={
+        "name": "Crack Detection Team",
+        "url": "https://github.com/anomalyco/microscopic-crack-detection",
+    },
 )
 
 app.add_middleware(
@@ -50,14 +69,14 @@ app.include_router(tasks.router, prefix=api_prefix)
 
 
 
+from fastapi.responses import FileResponse
+from pathlib import Path
+
 @app.get("/")
 async def root():
-    return {
-        "name": "Crack Detection API",
-        "version": "0.1.0",
-        "docs": "/docs",
-        "redoc": "/redoc",
-    }
+    html_path = Path(__file__).resolve().parent / "static" / "index.html"
+    return FileResponse(str(html_path))
+
 
 
 def main():
@@ -70,5 +89,7 @@ def main():
     )
 
 
-if __name__ == "__main__":
-    main()
+
+
+
+

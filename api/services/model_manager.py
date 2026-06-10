@@ -206,7 +206,9 @@ class ModelManager:
             if f.is_file() and f.suffix.lower() in (".pth", ".pt", ".onnx", ".torchscript"):
                 size_mb = round(f.stat().st_size / (1024 * 1024), 2)
                 ext = f.suffix.lower()
-                if ext == ".pth" or "unet" in str(f).lower():
+                if "unet-plusplus" in str(f).lower() or "unetplusplus" in str(f).lower():
+                    mtype = "unet_plusplus_v1"
+                elif ext == ".pth" or "unet" in str(f).lower():
                     mtype = "unet"
                 elif ext == ".pt" or "yolo" in str(f).lower():
                     mtype = "yolo"

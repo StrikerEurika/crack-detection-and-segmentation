@@ -35,7 +35,7 @@ class Task:
 class TaskManager:
     def __init__(self, max_workers: int = 2):
         self._tasks: dict[str, Task] = {}
-        self._queue: asyncio.Queue[str] = asyncio.Queue()
+        self._queue: Optional[asyncio.Queue[str]] = None
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._worker_task: Optional[asyncio.Task] = None
         self._running = False
@@ -43,6 +43,7 @@ class TaskManager:
     async def start(self):
         if self._running:
             return
+        self._queue = asyncio.Queue()
         self._running = True
         self._worker_task = asyncio.create_task(self._worker_loop())
         import logging
@@ -135,3 +136,4 @@ class TaskManager:
 
 
 task_manager = TaskManager()
+

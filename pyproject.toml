@@ -26,6 +26,3 @@ dependencies = [
     "uv>=0.11.19",
     "uvicorn[standard]>=0.34.0",
 ]
-
-[project.scripts]
-crack-api = "api.app:main"

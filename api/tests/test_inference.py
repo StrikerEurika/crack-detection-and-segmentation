@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_predict_no_file(client):
     r = client.post("/api/v1/predict")
     assert r.status_code == 422

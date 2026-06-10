@@ -8,7 +8,13 @@ from api.services.model_manager import model_manager
 router = APIRouter(tags=["Health"])
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health Check",
+    description="Returns the current health status of the API server, including the compute device, number of loaded models, PyTorch version, and CUDA availability.",
+    response_description="Server health status",
+)
 async def health():
     return HealthResponse(
         status="ok",
@@ -19,7 +25,13 @@ async def health():
     )
 
 
-@router.get("/info", response_model=InfoResponse)
+@router.get(
+    "/info",
+    response_model=InfoResponse,
+    summary="Server Information",
+    description="Returns detailed information about the server, including project name, version, compute device, available model checkpoints, and the default model path.",
+    response_description="Server information details",
+)
 async def info():
     available = model_manager.list_available()
     return InfoResponse(
