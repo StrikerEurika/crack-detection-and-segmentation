@@ -172,37 +172,17 @@ This project uses `uv` for python versioning and package management.
 
 ## Quickstart Guide
 
-### 1. Generate Synthetic Data
+### 1. Generate Synthetic Data (For Testing)
 
-If you don't have a dataset yet, generate a concrete-textured dataset containing synthetic crack patterns:
+If you don't have images to test yet, you can generate a concrete-textured dataset containing synthetic crack patterns:
 
 ```bash
-uv run generate_synthetic_data.py
+uv run src/utils/generate_synthetic_data.py
 ```
 
 This generates raw images and corresponding binary pixel-level masks under `data/raw/`.
 
-### 2. Generate Tiled Dataset
-
-Tile the high-resolution raw images into 512x512 training patches (keeping only 10% of negative patches without cracks to balance the dataset):
-
-```bash
-uv run tile_dataset.py
-```
-
-Outputs are saved in `data/tiles/`.
-
-### 3. Train the Segmentation Model
-
-Train the ResNet34-UNet baseline model for 15 epochs using the ComboLoss:
-
-```bash
-uv run train.py --epochs 15 --batch-size 4 --lr 3e-4
-```
-
-The best checkpoint based on validation F1 score is saved to `checkpoints/v1/best_model.pth`.
-
-### 4. Run Inference & Evaluation
+### 2. Run Inference & Evaluation
 
 Run tiled inference on a full-resolution image, post-process the mask, estimate crack dimensions, and evaluate against ground truth:
 

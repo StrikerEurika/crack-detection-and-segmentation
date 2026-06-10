@@ -22,7 +22,7 @@ run:
 	@if [ -z "$(IMAGE)" ]; then \
 		echo "Provide IMAGE=path/to/image.png"; exit 1; \
 	fi
-	python infer_yolo_tiled.py --image $(IMAGE) --model-path $(MODEL) --output-dir $(OUTDIR) \
+	python infer.py --image $(IMAGE) --model-path $(MODEL) --output-dir $(OUTDIR) \
 		--tile-size $(TILE_SIZE) --overlap $(OVERLAP) --conf $(CONF) --iou $(IOU) \
 		--mask-prob-threshold $(MASK_TH) --min-component-area $(MIN_AREA) \
 		--marker-saturation-threshold $(MARKER_SAT) --marker-value-threshold $(MARKER_VAL) $(EXTRA)
