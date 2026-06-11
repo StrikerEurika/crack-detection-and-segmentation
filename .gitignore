@@ -12,6 +12,9 @@ wheels/
 
 AGENTS/
 .antigravitycli/
+.gemini/
+.venv/
+.ipynb_checkpoints/
 data/
 logs/
 
