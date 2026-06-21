@@ -1,5 +1,5 @@
 [project]
-name = "miroscopic-crack-detection"
+name = "crack-detection-and-segmentation"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -13,6 +13,7 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "opencv-python-headless>=4.13.0.92",
     "pandas>=3.0.3",
+    "pillow>=12.2.0",
     "pydantic-settings>=2.7.0",
     "pytest>=9.0.3",
     "python-multipart>=0.0.20",

@@ -204,3 +204,9 @@ Outputs are written to the `output/` directory:
 
 We coordinate development through a team of 5 specialized subagents. For detailed agent profiles, system prompts, file ownership lists, and workflows, please refer to:
 **[FLEET_DESIGN.md](file:///D:/codes/projects/interns/intern-year-four/miroscopic-crack-detection/AGENTS/FLEET_DESIGN.md)**
+
+### Run API
+
+```
+uv run --active uvicorn api.app:app --reload
+```
