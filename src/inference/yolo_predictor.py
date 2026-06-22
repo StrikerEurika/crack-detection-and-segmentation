@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from typing import List, Dict, Any, Optional
 from src.inference.base_predictor import BasePredictor
-from src.inference.marker_suppression import MarkerSuppressor
+from src.preprocessing.marker_suppression import MarkerSuppressor
 
 class YoloPredictor(BasePredictor):
     def __init__(

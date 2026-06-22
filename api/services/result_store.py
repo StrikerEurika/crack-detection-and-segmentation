@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import cv2
 import numpy as np
 
 from api.config import settings
@@ -86,7 +87,6 @@ class ResultStore:
     ) -> Path:
         rdir = self._result_dir(result_id)
         path = rdir / f"{name}.png"
-        import cv2
         if len(image.shape) == 3 and image.shape[2] == 3:
             cv2.imwrite(str(path), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
         else:
@@ -98,7 +98,6 @@ class ResultStore:
     ) -> Path:
         rdir = self._result_dir(result_id)
         path = rdir / f"{name}.png"
-        import cv2
         cv2.imwrite(str(path), mask)
         return path
 

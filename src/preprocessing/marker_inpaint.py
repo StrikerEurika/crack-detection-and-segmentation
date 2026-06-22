@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from typing import Optional
 
-from src.inference.marker_suppression import MarkerSuppressor
+from src.preprocessing.marker_suppression import MarkerSuppressor
 
 
 class MarkerInpaint:

@@ -1,5 +1,29 @@
+# Core ML/DL
+torch
+torchvision
+segmentation-models-pytorch
 ultralytics
+torchmetrics
+
+# Image Processing
 opencv-python
+opencv-python-headless
 numpy
 scikit-image
-torch
+albumentations
+pillow
+
+# Web API
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
+pydantic-settings
+
+# Data/Utils
+pandas
+tqdm
+matplotlib
+
+# Dev/Test
+pytest

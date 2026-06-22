@@ -4,7 +4,7 @@ This repository contains code for tiled inference of crack segmentation models (
 
 Quick overview
 
-- `infer_yolo_tiled.py`: tile-based YOLO (seg) inference with marker suppression and cosine blending.
+- `infer.py`: tile-based YOLO (seg) inference with marker suppression and cosine blending.
 - `Makefile`: convenience commands to install dependencies and run inference with presets.
 - `requirements.txt`: Python dependencies used by the project.
 
@@ -28,7 +28,7 @@ Running inference
 Generic command:
 
 ```bash
-python infer_yolo_tiled.py --image path/to/image.png --output-dir output \\
+python infer.py --image path/to/image.png --output-dir output \\
   --model-path checkpoints/yolo26n-seg-train_2_weights/best.pt \\
   --tile-size 640 --overlap 96 --conf 0.18 --iou 0.45 \\
   --mask-prob-threshold 0.42 --min-component-area 8 --save-debug-mask
@@ -67,7 +67,7 @@ Debugging tips
 - Run with `--save-debug-mask` and inspect `output/<image>_debug_clean_union.png` to see what the marker filter removed.
 - If markers are black/gray rather than colored, use `--disable-color-marker-suppression` and tune `--min-component-area` and `--roundness-threshold`.
 
-If you'd like, I can tune these defaults directly in `infer_yolo_tiled.py` for your three example images.
+If you'd like, I can tune these defaults directly in `infer.py` for your three example images.
 
 License & notes
 

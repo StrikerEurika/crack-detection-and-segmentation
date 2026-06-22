@@ -1,4 +1,6 @@
 from __future__ import annotations
+import time
+import traceback
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +20,60 @@ from src.utils.logger import setup_logger
 
 router = APIRouter(prefix="/predict", tags=["Inference"])
 logger = setup_logger("api.inference")
+
+
+def _build_params(
+    model_type: str,
+    model_version: Optional[str],
+    tile_size: Optional[int],
+    overlap: Optional[int],
+    threshold: float,
+    min_area: int,
+    blend: str,
+    disable_color_marker_suppression: bool,
+    inpaint_markers: bool,
+    pre_inpaint_full: bool,
+    inpaint_radius: int,
+    marker_saturation_threshold: int,
+    marker_value_threshold: int,
+    suppress_marker_shapes: bool,
+    frame_side_coverage_threshold: float,
+    roundness_threshold: float,
+    conf: float,
+    iou: float,
+    save_debug_mask: bool,
+) -> PredictParams:
+    return PredictParams(
+        model_type=model_type,
+        model_version=model_version,
+        tile_size=tile_size,
+        overlap=overlap,
+        threshold=threshold,
+        min_area=min_area,
+        blend=blend,
+        disable_color_marker_suppression=disable_color_marker_suppression,
+        inpaint_markers=inpaint_markers,
+        pre_inpaint_full=pre_inpaint_full,
+        inpaint_radius=inpaint_radius,
+        marker_saturation_threshold=marker_saturation_threshold,
+        marker_value_threshold=marker_value_threshold,
+        suppress_marker_shapes=suppress_marker_shapes,
+        frame_side_coverage_threshold=frame_side_coverage_threshold,
+        roundness_threshold=roundness_threshold,
+        conf=conf,
+        iou=iou,
+        save_debug_mask=save_debug_mask,
+    )
+
+
+async def _save_upload(file: UploadFile) -> Path:
+    contents = await file.read()
+    temp_dir = settings.api_results_dir / "_uploads"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = temp_dir / file.filename
+    with open(temp_path, "wb") as f:
+        f.write(contents)
+    return temp_path
 
 
 @router.post(
@@ -50,12 +106,7 @@ async def predict_single(
     iou: float = Form(0.45, description="YOLO NMS IoU threshold. Only used when model_type is 'yolo'."),
     save_debug_mask: bool = Form(False, description="Save intermediate debug masks for troubleshooting."),
 ):
-    contents = await file.read()
-    temp_dir = settings.api_results_dir / "_uploads"
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    temp_path = temp_dir / file.filename
-    with open(temp_path, "wb") as f:
-        f.write(contents)
+    temp_path = await _save_upload(file)
 
     try:
         image = ImageLoader.load(str(temp_path))
@@ -65,30 +116,15 @@ async def predict_single(
 
     temp_path.unlink(missing_ok=True)
 
-    params = PredictParams(
-        model_type=model_type,
-        model_version=model_version,
-        tile_size=tile_size,
-        overlap=overlap,
-        threshold=threshold,
-        min_area=min_area,
-        blend=blend,
-        disable_color_marker_suppression=disable_color_marker_suppression,
-        inpaint_markers=inpaint_markers,
-        pre_inpaint_full=pre_inpaint_full,
-        inpaint_radius=inpaint_radius,
-        marker_saturation_threshold=marker_saturation_threshold,
-        marker_value_threshold=marker_value_threshold,
-        suppress_marker_shapes=suppress_marker_shapes,
-        frame_side_coverage_threshold=frame_side_coverage_threshold,
-        roundness_threshold=roundness_threshold,
-        conf=conf,
-        iou=iou,
-        save_debug_mask=save_debug_mask,
+    params = _build_params(
+        model_type, model_version, tile_size, overlap, threshold, min_area, blend,
+        disable_color_marker_suppression, inpaint_markers, pre_inpaint_full,
+        inpaint_radius, marker_saturation_threshold, marker_value_threshold,
+        suppress_marker_shapes, frame_side_coverage_threshold, roundness_threshold,
+        conf, iou, save_debug_mask,
     )
 
     try:
-        import time
         t0 = time.perf_counter()
         result = run_single_inference(image, file.filename, params)
         t_elapsed = (time.perf_counter() - t0) * 1000
@@ -96,7 +132,6 @@ async def predict_single(
         return PredictResponse(**result)
     except Exception as e:
         logger.error(f"Inference failed: {e}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -132,18 +167,8 @@ async def predict_and_evaluate(
     iou: float = Form(0.45, description="YOLO NMS IoU threshold."),
     save_debug_mask: bool = Form(False, description="Save debug masks."),
 ):
-    contents = await file.read()
-    mask_contents = await mask_file.read()
-    temp_dir = settings.api_results_dir / "_uploads"
-    temp_dir.mkdir(parents=True, exist_ok=True)
-
-    temp_img = temp_dir / file.filename
-    with open(temp_img, "wb") as f:
-        f.write(contents)
-
-    temp_mask = temp_dir / mask_file.filename
-    with open(temp_mask, "wb") as f:
-        f.write(mask_contents)
+    temp_img = await _save_upload(file)
+    temp_mask = await _save_upload(mask_file)
 
     try:
         image = ImageLoader.load(str(temp_img))
@@ -158,26 +183,12 @@ async def predict_and_evaluate(
     temp_img.unlink(missing_ok=True)
     temp_mask.unlink(missing_ok=True)
 
-    params = PredictParams(
-        model_type=model_type,
-        model_version=model_version,
-        tile_size=tile_size,
-        overlap=overlap,
-        threshold=threshold,
-        min_area=min_area,
-        blend=blend,
-        disable_color_marker_suppression=disable_color_marker_suppression,
-        inpaint_markers=inpaint_markers,
-        pre_inpaint_full=pre_inpaint_full,
-        inpaint_radius=inpaint_radius,
-        marker_saturation_threshold=marker_saturation_threshold,
-        marker_value_threshold=marker_value_threshold,
-        suppress_marker_shapes=suppress_marker_shapes,
-        frame_side_coverage_threshold=frame_side_coverage_threshold,
-        roundness_threshold=roundness_threshold,
-        conf=conf,
-        iou=iou,
-        save_debug_mask=save_debug_mask,
+    params = _build_params(
+        model_type, model_version, tile_size, overlap, threshold, min_area, blend,
+        disable_color_marker_suppression, inpaint_markers, pre_inpaint_full,
+        inpaint_radius, marker_saturation_threshold, marker_value_threshold,
+        suppress_marker_shapes, frame_side_coverage_threshold, roundness_threshold,
+        conf, iou, save_debug_mask,
     )
 
     try:
@@ -185,7 +196,6 @@ async def predict_and_evaluate(
         return PredictResponse(**result)
     except Exception as e:
         logger.error(f"Inference + evaluation failed: {e}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -230,26 +240,12 @@ async def predict_batch(
             fh.write(content)
         saved_paths.append(dst)
 
-    params = PredictParams(
-        model_type=model_type,
-        model_version=model_version,
-        tile_size=tile_size,
-        overlap=overlap,
-        threshold=threshold,
-        min_area=min_area,
-        blend=blend,
-        disable_color_marker_suppression=disable_color_marker_suppression,
-        inpaint_markers=inpaint_markers,
-        pre_inpaint_full=pre_inpaint_full,
-        inpaint_radius=inpaint_radius,
-        marker_saturation_threshold=marker_saturation_threshold,
-        marker_value_threshold=marker_value_threshold,
-        suppress_marker_shapes=suppress_marker_shapes,
-        frame_side_coverage_threshold=frame_side_coverage_threshold,
-        roundness_threshold=roundness_threshold,
-        conf=conf,
-        iou=iou,
-        save_debug_mask=save_debug_mask,
+    params = _build_params(
+        model_type, model_version, tile_size, overlap, threshold, min_area, blend,
+        disable_color_marker_suppression, inpaint_markers, pre_inpaint_full,
+        inpaint_radius, marker_saturation_threshold, marker_value_threshold,
+        suppress_marker_shapes, frame_side_coverage_threshold, roundness_threshold,
+        conf, iou, save_debug_mask,
     )
 
     task_id = await task_manager.submit(

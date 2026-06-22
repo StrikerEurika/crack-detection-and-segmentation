@@ -127,9 +127,9 @@ class ModelManager:
         kwargs = {}
         if resolved_type == "yolo":
             kwargs = {
-                "conf": 0.18,
-                "iou": 0.45,
-                "min_component_area": 20,
+                "conf": settings.default_conf_yolo,
+                "iou": settings.default_iou_yolo,
+                "min_component_area": settings.default_min_area,
             }
 
         with self._lock:

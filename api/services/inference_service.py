@@ -11,7 +11,6 @@ from api.schemas import PredictParams, PredictResponse, VisualizationUrls
 from api.services.model_manager import model_manager
 from api.services.result_store import result_store, ResultRecord
 from api.services.task_manager import task_manager
-from src.ingestion.image_loader import ImageLoader
 from src.preprocessing.marker_inpaint import MarkerInpaint
 from src.inference import PostProcessor
 from src.evaluation.metrics import CrackMetrics
@@ -21,37 +20,19 @@ from src.utils.logger import setup_logger
 logger = setup_logger("api.inference_service")
 
 
-def run_single_inference(
-    image_array: np.ndarray,
-    image_filename: str,
-    params: PredictParams,
-    mask_array: Optional[np.ndarray] = None,
-) -> dict:
-    result_id = str(uuid.uuid4())
-    t_start = time.perf_counter()
-
-    metadata = {
-        "width": image_array.shape[1],
-        "height": image_array.shape[0],
-    }
-
-    # Resolve model path and type dynamically
+def _resolve_model(params: PredictParams) -> tuple[str, str]:
     requested_model = params.model_version if params.model_version else settings.default_model_path
-    resolved_requested_path = model_manager.resolve_model_path(requested_model)
-    
-    # Check if the requested model is already loaded
-    if model_manager.is_loaded and Path(model_manager.model_info["model_path"]).resolve() == resolved_requested_path.resolve():
-        model_type = model_manager.model_info["model_type"]
-        model_path = model_manager.model_info["model_path"]
-    else:
-        model_manager.load(
-            model_path=str(resolved_requested_path),
-            model_type=params.model_type,
-        )
-        model_info = model_manager.model_info
-        model_type = model_info["model_type"]
-        model_path = model_info["model_path"]
+    resolved_path = model_manager.resolve_model_path(requested_model)
 
+    if model_manager.is_loaded and Path(model_manager.model_info["model_path"]).resolve() == resolved_path.resolve():
+        return model_manager.model_info["model_type"], model_manager.model_info["model_path"]
+
+    model_manager.load(model_path=str(resolved_path), model_type=params.model_type)
+    info = model_manager.model_info
+    return info["model_type"], info["model_path"]
+
+
+def _resolve_tiling(params: PredictParams, model_type: str) -> tuple[int, int]:
     tile_size = params.tile_size
     if tile_size is None:
         if model_type == "unet_plusplus_v1":
@@ -70,20 +51,16 @@ def run_single_inference(
         else:
             overlap = settings.default_overlap_unet
 
-    # Optional pre-inpainting
-    image_processed = image_array
-    if params.pre_inpaint_full:
-        logger.info("Inpainting markers on full image before tiling...")
-        image_processed = MarkerInpaint.inpaint_tiled(
-            image_array,
-            tile_size=tile_size,
-            overlap=overlap,
-            saturation_threshold=params.marker_saturation_threshold,
-            value_threshold=params.marker_value_threshold,
-            inpaint_radius=params.inpaint_radius,
-        )
+    return tile_size, overlap
 
-    # Get predictor and run inference
+
+def _run_predictor(
+    image: np.ndarray,
+    model_type: str,
+    tile_size: int,
+    overlap: int,
+    params: PredictParams,
+) -> np.ndarray:
     predictor = model_manager.get_predictor()
 
     predictor_kwargs = {}
@@ -95,15 +72,19 @@ def run_single_inference(
             "inpaint_radius": params.inpaint_radius,
         }
 
-    prob_map = predictor.predict_full_image(
-        image_processed,
+    return predictor.predict_full_image(
+        image,
         tile_size=tile_size,
         overlap=overlap,
         batch_size=4,
         blend_mode=params.blend,
     )
 
-    # Post-processing
+
+def _postprocess(
+    prob_map: np.ndarray,
+    params: PredictParams,
+) -> tuple[np.ndarray, np.ndarray, dict]:
     binary_mask = PostProcessor.binarize_probability_map(prob_map, threshold=params.threshold)
     cleaned_mask = PostProcessor.remove_noise(binary_mask, min_area=params.min_area)
 
@@ -121,10 +102,20 @@ def run_single_inference(
     confidence_score = float(np.mean(prob_map[cleaned_mask > 127])) if np.any(cleaned_mask > 127) else 0.0
     coords = np.argwhere(skeleton > 0).tolist()
 
-    t_elapsed = (time.perf_counter() - t_start) * 1000
+    return cleaned_mask, skeleton, {
+        "confidence": confidence_score,
+        "coords": coords,
+        "dims": dims,
+    }
 
-    # Save visualizations
-    overlay = Visualizer.draw_mask_overlay(image_array, cleaned_mask, color=(255, 0, 0), alpha=0.4)
+
+def _save_visualizations(
+    result_id: str,
+    image: np.ndarray,
+    prob_map: np.ndarray,
+    cleaned_mask: np.ndarray,
+) -> None:
+    overlay = Visualizer.draw_mask_overlay(image, cleaned_mask, color=(255, 0, 0), alpha=0.4)
     result_store.save_visualization(result_id, "overlay", overlay)
 
     heatmap = (prob_map * 255).astype(np.uint8)
@@ -134,34 +125,77 @@ def run_single_inference(
 
     result_store.save_mask_visualization(result_id, "mask", cleaned_mask)
 
-    # Evaluation if mask provided
+
+def _compute_evaluation(
+    result_id: str,
+    image: np.ndarray,
+    cleaned_mask: np.ndarray,
+    skeleton: np.ndarray,
+    mask_array: np.ndarray,
+    model_type: str,
+) -> dict:
+    if model_type == "unet_plusplus_v1":
+        from src.preprocessing import MarkerSuppressor
+        logger.info("Applying blue marker filtering to ground truth mask for consistency...")
+        mask_array = MarkerSuppressor.filter_blue_markers_from_mask(image, mask_array)
+
+    gt_skeleton = PostProcessor.skeletonize(mask_array)
+    pixel_metrics = CrackMetrics.compute_pixel_metrics(cleaned_mask, mask_array)
+    buffered_metrics = CrackMetrics.compute_buffered_metrics(skeleton, gt_skeleton, tolerance=3.0)
+
+    error_overlay = Visualizer.draw_error_analysis_overlay(image, mask_array, cleaned_mask, alpha=0.5)
+    result_store.save_visualization(result_id, "error_analysis", error_overlay)
+
+    return {**pixel_metrics, **buffered_metrics}
+
+
+def run_single_inference(
+    image_array: np.ndarray,
+    image_filename: str,
+    params: PredictParams,
+    mask_array: Optional[np.ndarray] = None,
+) -> dict:
+    result_id = str(uuid.uuid4())
+    t_start = time.perf_counter()
+
+    model_type, model_path = _resolve_model(params)
+    tile_size, overlap = _resolve_tiling(params, model_type)
+
+    image_processed = image_array
+    if params.pre_inpaint_full:
+        logger.info("Inpainting markers on full image before tiling...")
+        image_processed = MarkerInpaint.inpaint_tiled(
+            image_array,
+            tile_size=tile_size,
+            overlap=overlap,
+            saturation_threshold=params.marker_saturation_threshold,
+            value_threshold=params.marker_value_threshold,
+            inpaint_radius=params.inpaint_radius,
+        )
+
+    prob_map = _run_predictor(image_processed, model_type, tile_size, overlap, params)
+    cleaned_mask, skeleton, meta = _postprocess(prob_map, params)
+
+    t_elapsed = (time.perf_counter() - t_start) * 1000
+
+    _save_visualizations(result_id, image_array, prob_map, cleaned_mask)
+
     eval_results = {}
     if mask_array is not None:
-        if model_type == "unet_plusplus_v1":
-            from src.inference import MarkerSuppressor
-            logger.info("Applying blue marker filtering to ground truth mask for consistency...")
-            mask_array = MarkerSuppressor.filter_blue_markers_from_mask(image_array, mask_array)
-            
-        gt_skeleton = PostProcessor.skeletonize(mask_array)
-        pixel_metrics = CrackMetrics.compute_pixel_metrics(cleaned_mask, mask_array)
-        buffered_metrics = CrackMetrics.compute_buffered_metrics(skeleton, gt_skeleton, tolerance=3.0)
-        eval_results.update(pixel_metrics)
-        eval_results.update(buffered_metrics)
+        eval_results = _compute_evaluation(
+            result_id, image_array, cleaned_mask, skeleton, mask_array, model_type,
+        )
 
-        error_overlay = Visualizer.draw_error_analysis_overlay(image_array, mask_array, cleaned_mask, alpha=0.5)
-        result_store.save_visualization(result_id, "error_analysis", error_overlay)
-
-    # Build response
     record = ResultRecord(
         result_id=result_id,
         image_file=image_filename,
-        image_resolution=[metadata["width"], metadata["height"]],
-        crack_detected=bool(dims["crack_area_pixels"] > 0),
-        mean_confidence=round(confidence_score, 4),
-        estimated_length_pixels=dims["length_pixels"],
-        estimated_average_width_pixels=dims["average_width_pixels"],
-        crack_area_pixels=dims["crack_area_pixels"],
-        centerline_coordinates=coords,
+        image_resolution=[image_array.shape[1], image_array.shape[0]],
+        crack_detected=bool(meta["dims"]["crack_area_pixels"] > 0),
+        mean_confidence=round(meta["confidence"], 4),
+        estimated_length_pixels=meta["dims"]["length_pixels"],
+        estimated_average_width_pixels=meta["dims"]["average_width_pixels"],
+        crack_area_pixels=meta["dims"]["crack_area_pixels"],
+        centerline_coordinates=meta["coords"],
         processing_time_ms=round(t_elapsed, 2),
         evaluation_metrics=eval_results,
     )
@@ -177,7 +211,7 @@ def run_single_inference(
         estimated_length_pixels=record.estimated_length_pixels,
         estimated_average_width_pixels=record.estimated_average_width_pixels,
         crack_area_pixels=record.crack_area_pixels,
-        centerline_coordinates=coords,
+        centerline_coordinates=meta["coords"],
         processing_time_ms=record.processing_time_ms,
         evaluation_metrics=eval_results or None,
         visualizations=VisualizationUrls(
@@ -194,6 +228,8 @@ def run_batch_inference(
     params: PredictParams,
     task=None,
 ) -> list[dict]:
+    from src.ingestion.image_loader import ImageLoader
+
     results = []
     total = len(image_paths)
     for i, img_path in enumerate(image_paths):

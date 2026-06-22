@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from typing import List, Optional
 from src.inference.base_predictor import BasePredictor
-from src.inference.marker_suppression import MarkerSuppressor
+from src.preprocessing.marker_suppression import MarkerSuppressor
 
 class UnetPredictor(BasePredictor):
     def __init__(

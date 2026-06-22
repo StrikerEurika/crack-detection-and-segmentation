@@ -4,7 +4,9 @@ from .unet_plusplus_v1_predictor import UnetPlusPlusV1Predictor
 from .yolo_predictor import YoloPredictor
 from .factory import get_predictor
 from .postprocess import PostProcessor
-from .marker_suppression import MarkerSuppressor
+
+# Re-export MarkerSuppressor from its new location for backward compatibility
+from src.preprocessing.marker_suppression import MarkerSuppressor
 
 # Alias for backward-compatibility
 CrackPredictor = UnetPredictor
