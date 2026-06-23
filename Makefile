@@ -6,8 +6,6 @@ CONF=0.18
 IOU=0.45
 MASK_TH=0.42
 MIN_AREA=8
-MARKER_SAT=70
-MARKER_VAL=35
 
 .PHONY: install run balanced aggressive sensitive help
 
@@ -24,17 +22,16 @@ run:
 	fi
 	python infer.py --image $(IMAGE) --model-path $(MODEL) --output-dir $(OUTDIR) \
 		--tile-size $(TILE_SIZE) --overlap $(OVERLAP) --conf $(CONF) --iou $(IOU) \
-		--mask-prob-threshold $(MASK_TH) --min-component-area $(MIN_AREA) \
-		--marker-saturation-threshold $(MARKER_SAT) --marker-value-threshold $(MARKER_VAL) $(EXTRA)
+		--mask-prob-threshold $(MASK_TH) --min-component-area $(MIN_AREA) $(EXTRA)
 
 balanced:
 	$(MAKE) run IMAGE=$(IMAGE)
 
 aggressive:
-	$(MAKE) run IMAGE=$(IMAGE) MASK_TH=0.44 MIN_AREA=6 MARKER_SAT=60 MARKER_VAL=25 EXTRA="--save-debug-mask"
+	$(MAKE) run IMAGE=$(IMAGE) MASK_TH=0.44 MIN_AREA=6 EXTRA="--save-debug-mask"
 
 sensitive:
-	$(MAKE) run IMAGE=$(IMAGE) MASK_TH=0.38 MIN_AREA=5 MARKER_SAT=80 MARKER_VAL=40 EXTRA="--save-debug-mask"
+	$(MAKE) run IMAGE=$(IMAGE) MASK_TH=0.38 MIN_AREA=5 EXTRA="--save-debug-mask"
 
 help:
 	@echo "Usage: make <target> IMAGE=path/to/image.png"

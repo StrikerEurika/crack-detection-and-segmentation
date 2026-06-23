@@ -11,7 +11,6 @@ from api.schemas import PredictParams, PredictResponse, VisualizationUrls
 from api.services.model_manager import model_manager
 from api.services.result_store import result_store, ResultRecord
 from api.services.task_manager import task_manager
-from src.preprocessing.marker_inpaint import MarkerInpaint
 from src.inference import PostProcessor
 from src.evaluation.metrics import CrackMetrics
 from src.visualization.overlays import Visualizer
@@ -63,15 +62,6 @@ def _run_predictor(
 ) -> np.ndarray:
     predictor = model_manager.get_predictor()
 
-    predictor_kwargs = {}
-    if model_type == "unet":
-        predictor_kwargs = {
-            "inpaint_markers": params.inpaint_markers,
-            "marker_saturation_threshold": params.marker_saturation_threshold,
-            "marker_value_threshold": params.marker_value_threshold,
-            "inpaint_radius": params.inpaint_radius,
-        }
-
     return predictor.predict_full_image(
         image,
         tile_size=tile_size,
@@ -87,14 +77,6 @@ def _postprocess(
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     binary_mask = PostProcessor.binarize_probability_map(prob_map, threshold=params.threshold)
     cleaned_mask = PostProcessor.remove_noise(binary_mask, min_area=params.min_area)
-
-    if params.suppress_marker_shapes:
-        cleaned_mask = PostProcessor.suppress_marker_shapes(
-            cleaned_mask,
-            frame_side_coverage_threshold=params.frame_side_coverage_threshold,
-            roundness_threshold=params.roundness_threshold,
-        )
-        cleaned_mask = PostProcessor.remove_noise(cleaned_mask, min_area=params.min_area)
 
     skeleton = PostProcessor.skeletonize(cleaned_mask)
     dims = PostProcessor.estimate_dimensions(cleaned_mask, skeleton)
@@ -132,13 +114,7 @@ def _compute_evaluation(
     cleaned_mask: np.ndarray,
     skeleton: np.ndarray,
     mask_array: np.ndarray,
-    model_type: str,
 ) -> dict:
-    if model_type == "unet_plusplus_v1":
-        from src.preprocessing import MarkerSuppressor
-        logger.info("Applying blue marker filtering to ground truth mask for consistency...")
-        mask_array = MarkerSuppressor.filter_blue_markers_from_mask(image, mask_array)
-
     gt_skeleton = PostProcessor.skeletonize(mask_array)
     pixel_metrics = CrackMetrics.compute_pixel_metrics(cleaned_mask, mask_array)
     buffered_metrics = CrackMetrics.compute_buffered_metrics(skeleton, gt_skeleton, tolerance=3.0)
@@ -161,19 +137,7 @@ def run_single_inference(
     model_type, model_path = _resolve_model(params)
     tile_size, overlap = _resolve_tiling(params, model_type)
 
-    image_processed = image_array
-    if params.pre_inpaint_full:
-        logger.info("Inpainting markers on full image before tiling...")
-        image_processed = MarkerInpaint.inpaint_tiled(
-            image_array,
-            tile_size=tile_size,
-            overlap=overlap,
-            saturation_threshold=params.marker_saturation_threshold,
-            value_threshold=params.marker_value_threshold,
-            inpaint_radius=params.inpaint_radius,
-        )
-
-    prob_map = _run_predictor(image_processed, model_type, tile_size, overlap, params)
+    prob_map = _run_predictor(image_array, model_type, tile_size, overlap, params)
     cleaned_mask, skeleton, meta = _postprocess(prob_map, params)
 
     t_elapsed = (time.perf_counter() - t_start) * 1000
@@ -183,7 +147,7 @@ def run_single_inference(
     eval_results = {}
     if mask_array is not None:
         eval_results = _compute_evaluation(
-            result_id, image_array, cleaned_mask, skeleton, mask_array, model_type,
+            result_id, image_array, cleaned_mask, skeleton, mask_array,
         )
 
     record = ResultRecord(
